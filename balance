@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+# Balance data from one store dump across N nodes. See cockroachdb/cockroach's
+# allocator acceptance tests.
+#
+# Example:
+#    $ ./balance 4 ~/Downloads/allocatortest-1node-10g-262ranges-store1/ 10g-4nodes
+#    outputs to stores/10g-4nodes
+
+set -eo pipefail
+
+[[ "$1" && "$2" && "$3" ]] || {
+    echo "usage: $0 NUM-NODES SINGLE-STORE-DIR OUT-DIR" >&2
+    exit 1
+}
+
+n=$1
+indir=$2
+outdir="stores/$3"
+
+echo "rm -rf $outdir"
+rm -rf "$outdir"
+
+echo "rsync -a --delete --info=progress2 $indir $outdir/cockroach-data/1"
+mkdir -p $outdir/cockroach-data/1
+rsync -a --delete --info=progress2 $indir $outdir/cockroach-data/1
+
+cd $outdir
+
+PATH="$GOPATH/src/github.com/cockroachdb/cockroach:$PATH" \
+    COCKROACH_PREEMPTIVE_SNAPSHOT_RATE=$((1<<48)) \
+    COCKROACH_RAFT_SNAPSHOT_RATE=$((1<<48)) \
+    roachdemo -n 4 -- --logtostderr

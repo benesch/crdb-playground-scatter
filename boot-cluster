@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+[[ "$1" && "$1" != --* ]] && {
+  base_store="$(dirname "$0")/stores/${1:-}"
+  shift
+}
+
+[[ "$base_store" && ! -d "$base_store" ]] && {
+  echo "$base_store is not a directory" >&2
+  exit 1
+}
+
+if [[ "$base_store" ]]
+then
+  echo "rm -rf $base_store/cockroach-data/*/logs"
+  rm -rf "$base_store"/cockroach-data/*/logs
+  echo "rsync -a --delete --info=progress2 $base_store/cockroach-data/ cockroach-data"
+  rsync -a --delete --info=progress2 "$base_store/cockroach-data/" cockroach-data/
+fi
+
+trap 'killall -9 cockroach' EXIT
+PATH="$GOPATH/src/github.com/cockroachdb/cockroach:$PATH" roachdemo -n 4 -- --logtostderr "$@"

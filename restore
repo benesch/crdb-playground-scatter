@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+root=$(cd "$(dirname "$0")" && pwd)
+
+declare -A backups
+backups=(
+    [2tb]=datablocks
+    [tpch10]=tpch
+)
+
+[[ "${1:-}" ]] || {
+  echo "usage: $0 BACKUP-ID" >&2
+  exit 1
+}
+
+[[ "${backups[$1]}" ]] || {
+  echo "unknown backup $1" >&2
+  exit 1
+}
+
+backup="$1"
+database="${backups[$1]}"
+
+cockroach sql --insecure <<EOF
+    SET CLUSTER SETTING enterprise.enabled = true;
+    CREATE DATABASE restoredb;
+    RESTORE $database.* FROM 'nodelocal:///$root/backups/$backup' WITH OPTIONS ('into_db'='restoredb');
+EOF
