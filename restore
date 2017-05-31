@@ -25,6 +25,9 @@ database="${backups[$1]}"
 
 cockroach sql --insecure <<EOF
     SET CLUSTER SETTING enterprise.enabled = true;
-    CREATE DATABASE restoredb;
+    -- In a single-machine, multi-node setup, synchronizing the raft log will
+    -- often cause liveness failures.
+    SET CLUSTER SETTING kv.raft_log.synchronize = false;
+    CREATE DATABASE IF NOT EXISTS restoredb;
     RESTORE $database.* FROM 'nodelocal:///$root/backups/$backup' WITH OPTIONS ('into_db'='restoredb');
 EOF
